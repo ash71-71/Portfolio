@@ -4,7 +4,8 @@ import { GithubIcon, LinkedinIcon } from './Icons';
 import confetti from 'canvas-confetti';
 import { personalInfo } from '../data/portfolioData';
 
-const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY || '';
+const WEB3FORMS_ACCESS_KEY =
+  import.meta.env.WEB3FORMS_ACCESS_KEY ;
 
 
 export const Contact: React.FC = () => {
