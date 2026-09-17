@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { Mail, Phone, MapPin, Send, CheckCircle2, Copy, Check } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, CheckCircle2, Copy, Check, AlertCircle } from 'lucide-react';
 import { GithubIcon, LinkedinIcon } from './Icons';
 import confetti from 'canvas-confetti';
 import { personalInfo } from '../data/portfolioData';
 
+const WEB3FORMS_ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY || '';
+
+
 export const Contact: React.FC = () => {
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleCopyEmail = () => {
     navigator.clipboard.writeText(personalInfo.email);
@@ -15,25 +19,51 @@ export const Contact: React.FC = () => {
     setTimeout(() => setCopiedEmail(false), 2500);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) return;
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) return;
 
     setStatus('submitting');
+    setErrorMessage('');
 
-    setTimeout(() => {
-      setStatus('success');
-      // Trigger festive confetti
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.7 },
-        colors: ['#8b5cf6', '#06b6d4', '#10b981', '#ffffff']
+    try {
+      const submitData = new FormData();
+      submitData.append('access_key', WEB3FORMS_ACCESS_KEY);
+      submitData.append('name', formData.name.trim());
+      submitData.append('email', formData.email.trim());
+      submitData.append('subject', formData.subject.trim() || `New Portfolio Inquiry from ${formData.name.trim()}`);
+      submitData.append('message', formData.message.trim());
+      submitData.append('from_name', formData.name.trim());
+
+      submitData.append('botcheck', '');
+
+      const response = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        body: submitData
       });
 
-      setFormData({ name: '', email: '', subject: '', message: '' });
-      setTimeout(() => setStatus('idle'), 6000);
-    }, 800);
+      const data = await response.json();
+      console.log('Web3Forms API Response:', data);
+
+      if (data.success) {
+        setStatus('success');
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.7 },
+          colors: ['#8b5cf6', '#06b6d4', '#10b981', '#ffffff']
+        });
+        setFormData({ name: '', email: '', subject: '', message: '' });
+      } else {
+        console.error('Web3Forms submission error response:', data);
+        setStatus('error');
+        setErrorMessage(data.message || 'Submission failed. Please check details or send an email directly.');
+      }
+    } catch (err) {
+      console.error('Web3Forms catch error:', err);
+      setStatus('error');
+      setErrorMessage('Network error occurred. Please verify your connection or email me directly.');
+    }
   };
 
   return (
@@ -273,11 +303,37 @@ export const Contact: React.FC = () => {
                 </div>
                 <h4 style={{ fontSize: '1.3rem', color: '#ffffff' }}>Message Dispatched!</h4>
                 <p style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', maxWidth: '400px' }}>
-                  Thank you for reaching out. Your note has been received and I look forward to connecting with you soon!
+                  Thank you for reaching out. Your note has been delivered directly to my inbox and I will respond to you shortly!
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setStatus('idle')}
+                  className="btn btn-secondary"
+                  style={{ marginTop: '0.5rem', fontSize: '0.85rem', padding: '0.5rem 1.25rem' }}
+                >
+                  Send Another Message
+                </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {status === 'error' && (
+                  <div
+                    style={{
+                      padding: '0.85rem 1rem',
+                      borderRadius: '8px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                      color: '#f87171',
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem'
+                    }}
+                  >
+                    <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                    <span>{errorMessage || 'Failed to dispatch message. Please try again.'}</span>
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }} className="form-row">
                   <div>
                     <label
@@ -288,6 +344,7 @@ export const Contact: React.FC = () => {
                     </label>
                     <input
                       id="contact-name"
+                      name="name"
                       type="text"
                       required
                       value={formData.name}
@@ -318,6 +375,7 @@ export const Contact: React.FC = () => {
                     </label>
                     <input
                       id="contact-email"
+                      name="email"
                       type="email"
                       required
                       value={formData.email}
@@ -349,6 +407,7 @@ export const Contact: React.FC = () => {
                   </label>
                   <input
                     id="contact-subject"
+                    name="subject"
                     type="text"
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
@@ -378,6 +437,7 @@ export const Contact: React.FC = () => {
                   </label>
                   <textarea
                     id="contact-message"
+                    name="message"
                     required
                     rows={4}
                     value={formData.message}
